@@ -1,0 +1,465 @@
+---
+title: "MLPH_project"
+author: "Zheman Zhao"
+date: "2024-04-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+rm(list = ls())
+```
+## loading data
+```{r}
+data=read.csv("ObesityDataSet.csv")
+```
+## cleaning the dataset
+```{r}
+#convert any floating-point values to integers.
+data$Age<-trunc(data$Age)
+data$FCVC <- trunc(data$FCVC)
+data$NCP <- trunc(data$NCP)
+data$CH2O <- trunc(data$CH2O)
+data$FAF <- trunc(data$FAF)
+data$TUE <- trunc(data$TUE)
+```
+
+```{r}
+# Remove the weight and height variables and reclassify the outcome variable from 8 to 2 categories
+data <- data[, !names(data) %in% c("Weight", "Height")]
+data$obesity <- data$NObeyesdad
+data$obesity[data$obesity %in% c("Overweight_Level_I","Overweight_Level_II","Overweight_Level_III")] <- 1
+data$obesity[data$obesity %in% c("Obesity_Type_I","Obesity_Type_II","Obesity_Type_III")] <-1
+data$obesity[data$obesity=="Normal_Weight"] <- 0
+data$obesity[data$obesity=="Insufficient_Weight"] <- 0
+data$obesity <- factor(data$obesity, levels = c(0,1), labels = c("Not Obesity","Obesity"), ordered = TRUE)
+data <- data[, !names(data) %in% c("NObeyesdad")]
+```
+## rename those variables to make it more clear, and also convert them to factors
+```{r gender}
+data$gender <- data$Gender
+data$gender[data$gender=="Female"] <- 1
+data$gender[data$gender=="Male"] <- 0
+data$gender <-factor(data$gender,levels=c(0,1),labels = c("Male","Female"),ordered=FALSE)
+data <- data[, !names(data) %in% c("Gender")]
+```
+
+```{r family history}
+data$history <- data$family_history_with_overweight
+data$history[data$history=="yes"] <- 1
+data$history[data$history=="no"] <- 0
+data$history <-factor(data$history,levels=c(0,1),labels = c("no","yes"),ordered=FALSE)
+data <- data[, !names(data) %in% c("family_history_with_overweight")]
+```
+
+```{r frequency consumption of high caloric food}
+data$caloric <- data$FAVC
+data$caloric[data$caloric=="yes"] <- 1
+data$caloric[data$caloric=="no"] <- 0
+data$caloric <-factor(data$caloric,levels=c(0,1),labels = c("no","yes"),ordered=FALSE)
+data <- data[, !names(data) %in% c("FAVC")]
+```
+
+```{r frequency consumption of vegetables}
+data$vegetables <- data$FCVC
+data$vegetables[data$vegetables==1] <- 0
+data$vegetables[data$vegetables==2] <- 1
+data$vegetables[data$vegetables==3] <- 2
+data$vegetables <-factor(data$vegetables,levels=c(0,1,2),labels = c("never","sometimes","always"),ordered=TRUE)
+data <- data[, !names(data) %in% c("FCVC")]
+```
+
+```{r frequency consumption of vegetables}
+data$meal <- data$NCP
+data <- data[, !names(data) %in% c("NCP")]
+```
+
+```{r consumption of food between meals}
+data$food <- data$CAEC
+data$food[data$food=="no"] <- 0
+data$food[data$food=="Sometimes"] <- 1
+data$food[data$food=="Frequently"] <- 2
+data$food[data$food=="Always"] <- 3
+data$food <-factor(data$food,levels=c(0,1,2,3),labels = c("no","sometimes","frequently","always"),ordered=TRUE)
+data <- data[, !names(data) %in% c("CAEC")]
+```
+
+```{r smoke}
+data$smoke <- data$SMOKE
+data$smoke[data$smoke=="yes"] <- 1
+data$smoke[data$smoke=="no"] <- 0
+data$smoke <-factor(data$smoke,levels=c(0,1),labels = c("no","yes"),ordered=FALSE)
+data <- data[, !names(data) %in% c("SMOKE")]
+```
+
+```{r water}
+data$water <- data$CH2O
+data$water[data$water==1] <- 0
+data$water[data$water==2] <- 1
+data$water[data$water==3] <- 2
+data$water <-factor(data$water,levels=c(0,1,2),labels = c("less than 1L","between 1L and 2L","more than 2L"),ordered=TRUE)
+data <- data[, !names(data) %in% c("CH2O")]
+```
+
+```{r monitor}
+data$monitor <- data$SCC
+data$monitor[data$monitor=="yes"] <- 1
+data$monitor[data$monitor=="no"] <- 0
+data$monitor <-factor(data$monitor,levels=c(0,1),labels = c("no","yes"),ordered=FALSE)
+data <- data[, !names(data) %in% c("SCC")]
+```
+
+```{r physical exercise}
+data$exercise <- data$FAF
+data$exercise <-factor(data$exercise,levels=c(0,1,2,3),labels = c("I do not have","1 or 2 days","2 or 4 days","4 or 5 days"),ordered=TRUE)
+data <- data[, !names(data) %in% c("FAF")]
+```
+
+```{r technology}
+data$technology <- data$TUE
+data$technology <-factor(data$technology,levels=c(0,1,2),labels = c("0-2 hours","3-5 hours","more than 5 hours"),ordered=TRUE)
+data <- data[, !names(data) %in% c("TUE")]
+```
+
+```{r alcohol}
+data$alcohol <- data$CALC
+data$alcohol[data$alcohol=="no"] <- 0
+data$alcohol[data$alcohol=="Sometimes"] <- 1
+data$alcohol[data$alcohol=="Frequently"] <- 2
+data$alcohol[data$alcohol=="Always"] <- 2  # Only one sample drank always, so we merged this person into those who drank frequently
+data$alcohol <-factor(data$alcohol,levels=c(0,1,2),labels = c("no","sometimes","frequently"),ordered=TRUE)
+data <- data[, !names(data) %in% c("CALC")]
+```
+
+```{r transportation}
+data$transportation <- data$MTRANS
+data$transportation[data$transportation=="Automobile"] <- 0
+data$transportation[data$transportation=="Bike"] <- 1
+data$transportation[data$transportation=="Motorbike"] <- 2
+data$transportation[data$transportation=="Public_Transportation"] <- 3
+data$transportation[data$transportation=="Walking"] <- 4
+data$transportation <-factor(data$transportation,levels=c(0,1,2,3,4),labels = c("automobile","bike","motorbike","public transportation","walking"),ordered=FALSE)
+data <- data[, !names(data) %in% c("MTRANS")]
+```
+
+## Univiariable analysis
+```{r}
+library(table1)
+table1(~.,data = data,topclass = "Rtable1-grid Rtable1-shade Rtable1-times")
+```
+
+## bivariable analysis
+```{r}
+# chi-square tests between outcome variable and those categorical variables
+chisq.test(data$obesity,data$gender)
+chisq.test(data$obesity,data$history)
+chisq.test(data$obesity,data$caloric)
+chisq.test(data$obesity,data$vegetables)
+chisq.test(data$obesity,data$meal)
+chisq.test(data$obesity,data$food)
+chisq.test(data$obesity,data$smoke)
+chisq.test(data$obesity,data$water)
+chisq.test(data$obesity,data$monitor)
+chisq.test(data$obesity,data$exercise)
+chisq.test(data$obesity,data$technology)
+chisq.test(data$obesity,data$alcohol)
+chisq.test(data$obesity,data$transportation)
+```
+```{r}
+# point-biserial correlation between age and outcome variable: obesity
+library(ltm)
+biserial.cor(data$Age,data$obesity)
+```
+
+## randomly split data into 80:20 for training and testing
+```{r test and training}
+library(caret)
+set.seed(123)  # Setting a seed for reproducibility
+trainIndex <- createDataPartition(data$obesity, p = 0.8, list = FALSE)
+train_data <- data[trainIndex, ]
+test_data <- data[-trainIndex, ]
+```
+
+```{r}
+## remove those variables that do not show significant associations with obesity
+train_data <- train_data[, !names(train_data) %in% c("smoke","Age","water")]
+test_data <- test_data[, !names(test_data) %in% c("smoke","Age","water")]
+```
+
+## develop five predictive models
+```{r}
+## develop the logistic regression models
+logistic_model <- glm(obesity ~ .,family = binomial(),data=train_data)
+```
+```{r}
+summary(logistic_model)
+```
+
+```{r}
+#detect multicollinearity 
+library(car)
+vif(logistic_model)
+```
+
+```{r}
+# print confusion matrix for training set
+prob_logi <- predict(logistic_model,data=train_data,type="response")
+class_logi <- ifelse(prob_logi >0.5,1,0)
+class_logi <-factor(class_logi, levels = c(0,1), labels = c("Not Obesity","Obesity"), ordered = TRUE)
+conf_matrix <- table(class_logi,train_data$obesity)
+print(conf_matrix)
+```
+```{r}
+# training accuracy
+(298+1172)/(298+70+150+1172)
+```
+```{r}
+# print confusion matrix for test set
+prob_logi <- predict(logistic_model,newdata=test_data,type="response")
+class_logi <- ifelse(prob_logi >0.5,1,0)
+class_logi <-factor(class_logi, levels = c(0,1), labels = c("Not Obesity","Obesity"), ordered = TRUE)
+conf_matrix <- table(class_logi,test_data$obesity)
+print(conf_matrix)
+```
+```{r}
+# test accuracy
+(73+285)/(73+285+38+25)
+```
+```{r}
+# calculate the auc value and ROC curve
+library(pROC)
+roc_log <- roc(test_data$obesity,prob_logi)
+auc_log <- auc(roc_log)
+auc_log
+```
+
+
+```{r decision tree}
+# develop decision tree
+library(tree)
+decision_model <- tree(obesity ~ ., data = train_data)
+```
+```{r Cross-validation}
+## using cross-validation to decide the optimal tree size
+library(ggplot2)
+set.seed(123)
+cross_tree<- cv.tree(decision_model)
+cross_tree_df <- data.frame(size = cross_tree$size, deviance = cross_tree$dev)
+best_size <- cross_tree$size[which.min(cross_tree$dev)]
+ggplot(cross_tree_df, mapping = aes(x = size, y = deviance)) + 
+  geom_point(size = 3) + 
+  geom_line() +
+  geom_vline(xintercept = best_size, col = "red")
+cat('CV leads to the optimal tree size as ', best_size,'\n')
+```
+```{r}
+# Prune the decision tree
+decision_tree_final <- prune.tree(decision_model, best = best_size)
+#The subtree with best_size terminal nodes
+plot(decision_tree_final)
+text(decision_tree_final)
+```
+```{r}
+# confusion matrix for training set
+predictions_dt_tr <- predict(decision_tree_final, newdata = train_data, type = "class")
+conf_matrix_dt_tr <- table(train_data$obesity,predictions_dt_tr)
+print(conf_matrix_dt_tr)
+```
+```{r training accuracy}
+pred_obesity <- sum(as.character(predictions_dt_tr) == as.character(train_data$obesity))/nrow(train_data)
+pred_obesity
+```
+
+```{r}
+# confusion matrix for test data
+predictions_dt_te <- predict(decision_tree_final, newdata = test_data, type = "class")
+conf_matrix_dt_te <- table(test_data$obesity,predictions_dt_te)
+print(conf_matrix_dt_te)
+```
+
+```{r test error}
+sum(as.character(predictions_dt_te) == as.character(test_data$obesity))/nrow(test_data)
+```
+
+```{r}
+# calculate auc value and ROC
+tree_probs <- predict(decision_tree_final, newdata = test_data, type = "vector")[,"Obesity"]
+roc_dt <- roc(test_data$obesity,tree_probs)
+auc_dt <-auc(roc_dt)
+auc_dt
+```
+
+
+```{r}
+#develop random forest model
+library(randomForest)
+set.seed(123)
+rf_model <- randomForest(obesity ~ ., data = train_data,importance = TRUE)
+importance(rf_model)
+varImpPlot(rf_model)
+```
+
+```{r}
+#confusion matrix for training set
+pred_obesity <- predict(rf_model,newdata=train_data)
+table(pred_obesity,train_data$obesity)
+```
+
+```{r training error}
+sum(as.character(pred_obesity) == as.character(train_data$obesity))/nrow(train_data)
+```
+```{r}
+# confusion matrix for test matrix
+pred_obesity <- predict(rf_model,newdata=test_data)
+table(pred_obesity,test_data$obesity)
+```
+
+```{r test error}
+predict_rf <- predict(rf_model,newdata=test_data)
+sum(as.character(predict_rf) == as.character(test_data$obesity))/nrow(test_data)
+```
+```{r}
+#calculate auc value and ROC
+rf_probs <- predict(rf_model,newdata=test_data,type="prob")[,2]
+roc_rf <-roc(test_data$obesity,rf_probs)
+auc_rf <- auc(roc_rf)
+auc_rf
+```
+
+
+```{r boosting}
+#develop boosting model
+library(gbm)
+set.seed(0)
+boost_model <- gbm(obesity ~ .,data = train_data, distribution = "multinomial", n.trees = 5000, interaction.depth = 2,cv.folds = 10,n.cores = 1)
+summary(boost_model)
+```
+
+```{r training error}
+# confusion matrix for training set
+yprob.boost <- predict(boost_model, data = train_data, n.trees = 5000, type = "response")
+yhat.boost <- levels(data$obesity)[apply(yprob.boost, 1, which.max)]
+table(yhat.boost,train_data$obesity)
+```
+
+```{r}
+(381+1193)/(381+1193+49+67)
+```
+
+```{r test error}
+#confusion matrix for test set
+yprob.boost <- predict(boost_model, newdata = test_data, n.trees = 5000, type = "response")
+yhat.boost <- levels(data$obesity)[apply(yprob.boost, 1, which.max)]
+table(yhat.boost,test_data$obesity)
+```
+```{r}
+(84+278)/(84+27+32+278)
+```
+```{r}
+# calculate auc and ROC
+boost_probs <- predict(boost_model, newdata = test_data, n.trees = 5000, type = "response")[,"Obesity",]
+roc_b <- roc(test_data$obesity,boost_probs)
+auc_b <-auc(roc_b)
+auc_b
+```
+
+```{r, eval=FALSE}
+# develop neural network
+install.packages("tensorflow")
+install.packages("keras")
+install.packages("tfdatasets")
+install.packages("mlbench")
+library(keras)
+library(tensorflow)
+install_keras()
+```
+```{r}
+library(mlbench)
+library(keras)
+library(tfdatasets)
+library(caret)
+library(dplyr)
+```
+
+```{r}
+library(keras)
+library(tidyverse)
+
+mdata <- data %>%
+  mutate(across(where(is.character), as.factor)) %>%
+  mutate(obesity = if_else(obesity == "Obesity", 1, 0)) %>%
+  mutate_if(is.factor, as.integer)
+
+
+mdata$meal <- scale(mdata$meal)
+
+# Splitting data into training and test sets
+set.seed(123) # for reproducibility
+train_indices <- sample(1:nrow(mdata), size = 0.8 * nrow(mdata))
+mtrain_data <- mdata[train_indices, ]
+mtest_data <- mdata[-train_indices, ]
+
+# Prepare the data for the model
+mtrain_labels <- as.numeric(mtrain_data$obesity)
+mtest_labels <- as.numeric(mtest_data$obesity)
+mtrain_data <- as.matrix(mtrain_data[,-1]) # Remove the target variable
+mtest_data <- as.matrix(mtest_data[,-1])
+
+# Building the neural network model
+model <- keras_model_sequential() %>%
+  layer_dense(units = 16, activation = 'relu', input_shape = c(ncol(mtrain_data))) %>%
+  layer_dense(units = 1, activation = 'sigmoid') # Output layer for binary classification
+
+# Compile the model
+model %>% compile(
+  optimizer = 'adam',
+  loss = 'binary_crossentropy',
+  metrics = c('accuracy')
+)
+
+# Train the model
+history <- model %>% fit(
+  mtrain_data,
+  mtrain_labels,
+  epochs = 20,
+  batch_size = 32,
+  validation_split = 0.2 
+)
+
+# Evaluate the model on the test set
+score <- model %>% evaluate(mtest_data, mtest_labels)
+print(score)
+
+# Predictions
+predictions_prob <- model %>% predict(mtest_data)
+predictions <- ifelse(predictions_prob > 0.5, 1, 0)
+
+# Confusion Matrix
+table(Predicted = predictions, Actual = mtest_labels)
+```
+
+```{r}
+#calculate auc and ROC
+roc_nn <- roc(mtest_labels,predictions_prob)
+auc_nn <- auc(roc_nn)
+auc_nn
+```
+
+
+```{r}
+plot(roc_b,main="Comparison of Model ROC",col="red",xlim=c(0,1),ylim=c(0,1),asp=1)
+plot(roc_dt,add=TRUE,col="orange")
+plot(roc_log,add=TRUE,col="yellow")
+plot(roc_nn,add=TRUE,col="green")
+plot(roc_rf,add=TRUE,col="blue")
+legend("bottomleft", legend = c("Logistic Regression", "Pruned Decision Tree", "Random Forest", "Boosting", "Neural Network"), 
+       col = c("yellow", "orange", "blue", "red","green"), lwd = 1)
+```
+
+
+
+
+
+
