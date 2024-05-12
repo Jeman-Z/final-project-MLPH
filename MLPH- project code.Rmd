@@ -2,7 +2,9 @@
 title: "MLPH_project"
 author: "Zheman Zhao and Yun Shen"
 date: "2024-04-15"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -71,7 +73,7 @@ data$vegetables <-factor(data$vegetables,levels=c(0,1,2),labels = c("never","som
 data <- data[, !names(data) %in% c("FCVC")]
 ```
 
-```{r frequency consumption of vegetables}
+```{r bumber of meals}
 data$meal <- data$NCP
 data <- data[, !names(data) %in% c("NCP")]
 ```
@@ -182,12 +184,6 @@ train_data <- data[trainIndex, ]
 test_data <- data[-trainIndex, ]
 ```
 
-```{r}
-## remove those variables that do not show significant associations with obesity
-train_data <- train_data[, !names(train_data) %in% c("smoke","Age","water")]
-test_data <- test_data[, !names(test_data) %in% c("smoke","Age","water")]
-```
-
 ## develop five predictive models
 ```{r}
 ## develop the logistic regression models
@@ -213,7 +209,7 @@ print(conf_matrix)
 ```
 ```{r}
 # training accuracy
-(298+1172)/(298+70+150+1172)
+(334+1172)/(334+1172+114+70)
 ```
 ```{r}
 # print confusion matrix for test set
@@ -225,7 +221,7 @@ print(conf_matrix)
 ```
 ```{r}
 # test accuracy
-(73+285)/(73+285+38+25)
+(85+287)/(85+287+26+23)
 ```
 ```{r}
 # calculate the auc value and ROC curve
@@ -267,7 +263,7 @@ predictions_dt_tr <- predict(decision_tree_final, newdata = train_data, type = "
 conf_matrix_dt_tr <- table(train_data$obesity,predictions_dt_tr)
 print(conf_matrix_dt_tr)
 ```
-```{r training accuracy}
+```{r training accuracy of decision tree}
 pred_obesity <- sum(as.character(predictions_dt_tr) == as.character(train_data$obesity))/nrow(train_data)
 pred_obesity
 ```
@@ -279,7 +275,7 @@ conf_matrix_dt_te <- table(test_data$obesity,predictions_dt_te)
 print(conf_matrix_dt_te)
 ```
 
-```{r test error}
+```{r test error of decision tree}
 sum(as.character(predictions_dt_te) == as.character(test_data$obesity))/nrow(test_data)
 ```
 
@@ -307,7 +303,7 @@ pred_obesity <- predict(rf_model,newdata=train_data)
 table(pred_obesity,train_data$obesity)
 ```
 
-```{r training error}
+```{r training error of random forest}
 sum(as.character(pred_obesity) == as.character(train_data$obesity))/nrow(train_data)
 ```
 ```{r}
@@ -316,7 +312,7 @@ pred_obesity <- predict(rf_model,newdata=test_data)
 table(pred_obesity,test_data$obesity)
 ```
 
-```{r test error}
+```{r test error of random forest}
 predict_rf <- predict(rf_model,newdata=test_data)
 sum(as.character(predict_rf) == as.character(test_data$obesity))/nrow(test_data)
 ```
@@ -328,38 +324,41 @@ auc_rf <- auc(roc_rf)
 auc_rf
 ```
 
+```{r}
+table(as.numeric(train_data$obesity)-1)
+```
 
 ```{r boosting}
 #develop boosting model
 library(gbm)
 set.seed(0)
-boost_model <- gbm(obesity ~ .,data = train_data, distribution = "multinomial", n.trees = 5000, interaction.depth = 2,cv.folds = 10,n.cores = 1)
+boost_model <- gbm(as.numeric(obesity)-1 ~ .,data = train_data, distribution = "bernoulli", n.trees = 5000, interaction.depth = 2,cv.folds = 10,n.cores = 1)
 summary(boost_model)
 ```
 
-```{r training error}
+```{r training error of boosting}
 # confusion matrix for training set
 yprob.boost <- predict(boost_model, data = train_data, n.trees = 5000, type = "response")
-yhat.boost <- levels(data$obesity)[apply(yprob.boost, 1, which.max)]
-table(yhat.boost,train_data$obesity)
+predictions_boost <- ifelse(yprob.boost > 0.5, 1, 0)
+table(predictions_boost,train_data$obesity)
 ```
 
 ```{r}
-(381+1193)/(381+1193+49+67)
+(417+1231)/(417+1231+11+31)
 ```
 
-```{r test error}
+```{r test error of boosting}
 #confusion matrix for test set
 yprob.boost <- predict(boost_model, newdata = test_data, n.trees = 5000, type = "response")
-yhat.boost <- levels(data$obesity)[apply(yprob.boost, 1, which.max)]
-table(yhat.boost,test_data$obesity)
+predictions_boost <- ifelse(yprob.boost > 0.5, 1, 0)
+table(predictions_boost,test_data$obesity)
 ```
 ```{r}
-(84+278)/(84+27+32+278)
+(92+290)/(92+290+19+20)
 ```
 ```{r}
 # calculate auc and ROC
-boost_probs <- predict(boost_model, newdata = test_data, n.trees = 5000, type = "response")[,"Obesity",]
+boost_probs <- predict(boost_model, newdata = test_data, n.trees = 5000, type = "response")
 roc_b <- roc(test_data$obesity,boost_probs)
 auc_b <-auc(roc_b)
 auc_b
@@ -393,11 +392,9 @@ mdata <- data %>%
   mutate_if(is.factor, as.integer)
 
 
-mdata$meal <- scale(mdata$meal)
-
 # Splitting data into training and test sets
 set.seed(123) # for reproducibility
-train_indices <- sample(1:nrow(mdata), size = 0.8 * nrow(mdata))
+train_indices <- createDataPartition(mdata$obesity, p = 0.8, list = FALSE)
 mtrain_data <- mdata[train_indices, ]
 mtest_data <- mdata[-train_indices, ]
 
@@ -440,6 +437,7 @@ predictions <- ifelse(predictions_prob > 0.5, 1, 0)
 table(Predicted = predictions, Actual = mtest_labels)
 ```
 
+
 ```{r}
 #calculate auc and ROC
 roc_nn <- roc(mtest_labels,predictions_prob)
@@ -458,6 +456,9 @@ legend("bottomleft", legend = c("Logistic Regression", "Pruned Decision Tree", "
        col = c("yellow", "orange", "blue", "red","green"), lwd = 1)
 ```
 
+```{r}
+sprintf("AUC value of Logistic regression model was %.3f, AUC value of decision tree model was %.3f,AUC value of random forest model was %.3f,AUC value of boosting model was %.3f,AUC value of neural network model was %.3f ",auc_log, auc_dt,auc_rf,auc_b,auc_nn)
+```
 
 
 
